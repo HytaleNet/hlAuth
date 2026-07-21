@@ -1,0 +1,21 @@
+{
+  "Group": "HytaleNet",
+  "Name": "hlAuth",
+  "Version": "1.0.0",
+  "Description": "Authentication plugin for Hytale servers: registration and login with native UI menus, sessions and secure password hashing. Inspired by AuthMeReloaded.",
+  "Authors": [
+    {
+      "Name": "Chernyash"
+    },
+    {
+      "Name": "HytaleNet HLauncher"
+    }
+  ],
+  "Website": "https://github.com/HytaleNet/hlAuth",
+  "ServerVersion": "*",
+  "Main": "com.authme.hytale.AuthMePlugin",
+  "Dependencies": {},
+  "OptionalDependencies": {},
+  "DisabledByDefault": false,
+  "IncludesAssetPack": true
+}

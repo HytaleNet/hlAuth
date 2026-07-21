@@ -1,0 +1,47 @@
+# === AuthMe для Hytale ===
+
+# UI
+ui.login.title = Вход
+ui.login.welcome = С возвращением! Этот сервер защищён hlAuth. Введите пароль, чтобы продолжить игру.
+ui.login.button = Войти
+ui.login.hint = Также можно использовать команду /login <пароль> в чате.
+ui.register.title = Регистрация
+ui.register.welcome = Добро пожаловать! Этот сервер защищён hlAuth. Придумайте пароль, чтобы зарегистрировать аккаунт.
+ui.register.button = Зарегистрироваться
+ui.register.hint = Также можно использовать команду /register <пароль> <пароль> в чате.
+ui.password = Пароль
+ui.password.placeholder = Введите пароль...
+ui.password.confirm = Подтверждение пароля
+ui.password.confirmPlaceholder = Повторите пароль...
+
+# Вход / регистрация
+login.success = Вы успешно вошли. Приятной игры!
+login.sessionResumed = Сессия восстановлена, с возвращением!
+login.reminder = Пожалуйста, войдите: /login <пароль>
+register.success = Вы успешно зарегистрированы. Добро пожаловать!
+register.reminder = Пожалуйста, зарегистрируйтесь: /register <пароль> <пароль>
+logout.success = Вы вышли из аккаунта. Войдите снова, чтобы продолжить игру.
+changepassword.success = Пароль успешно изменён.
+unregister.success = Ваш аккаунт удалён.
+
+# Ошибки
+error.notRegistered = Этот аккаунт не зарегистрирован.
+error.alreadyRegistered = Этот аккаунт уже зарегистрирован.
+error.alreadyLoggedIn = Вы уже вошли в аккаунт.
+error.notLoggedIn = Вы не вошли в аккаунт.
+error.wrongPassword = Неверный пароль.
+error.emptyPassword = Пароль не может быть пустым.
+error.passwordMismatch = Пароли не совпадают.
+error.passwordTooShort = Пароль слишком короткий.
+error.passwordTooLong = Пароль слишком длинный.
+error.passwordUnsafe = Этот пароль небезопасен, выберите другой.
+error.tooManyAccountsPerIp = С вашего IP-адреса зарегистрировано слишком много аккаунтов.
+error.timeout = Время на авторизацию истекло.
+
+# Администрирование
+admin.usage = Использование: /hlauth <register|unregister|changepassword|info|reload>
+admin.registered = Аккаунт игрока {player} зарегистрирован.
+admin.unregistered = Аккаунт игрока {player} удалён.
+admin.passwordChanged = Пароль игрока {player} изменён.
+admin.reloaded = Конфигурация hlAuth перезагружена.
+admin.info = Аккаунт {player} | регистрация: {registrationDate} (ip: {registrationIp}) | последний вход: {lastLogin} (ip: {lastIp})

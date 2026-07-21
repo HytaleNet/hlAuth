@@ -1,0 +1,55 @@
+# AuthMe for Hytale — messages (en)
+# Format: key: text. Placeholders like {player} are replaced automatically.
+
+# UI
+ui.login.title: "Login"
+ui.login.welcome: "Welcome back! This server is protected by hlAuth. Please enter your password to continue playing."
+ui.login.button: "Log in"
+ui.login.hint: "You can also use the /login <password> command in chat."
+ui.register.title: "Registration"
+ui.register.welcome: "Welcome! This server is protected by hlAuth. Please create a password to register your account."
+ui.register.button: "Register"
+ui.register.hint: "You can also use the /register <password> <password> command in chat."
+ui.password: "Password"
+ui.password.placeholder: "Enter your password..."
+ui.password.confirm: "Confirm password"
+ui.password.confirmPlaceholder: "Repeat your password..."
+ui.denied.premium.title: "Licensed account"
+ui.denied.offline.title: "Offline account"
+ui.denied.exit: "Exit"
+
+# Login / register flow
+login.success: "Successfully logged in. Have fun!"
+login.sessionResumed: "Session resumed, welcome back!"
+login.premium: "Premium account verified, logged in automatically."
+register.premium: "Premium account verified, account created automatically."
+login.reminder: "Please log in with /login <password>"
+register.success: "Successfully registered. Welcome!"
+register.reminder: "Please register with /register <password> <password>"
+logout.success: "You have been logged out. Log in again to continue playing."
+changepassword.success: "Password changed successfully."
+unregister.success: "Your account has been deleted. Please register again."
+
+# Errors
+error.notRegistered: "This account is not registered."
+error.alreadyRegistered: "This account is already registered."
+error.alreadyLoggedIn: "You are already logged in."
+error.notLoggedIn: "You are not logged in."
+error.wrongPassword: "Wrong password."
+error.emptyPassword: "The password may not be empty."
+error.passwordMismatch: "The passwords do not match."
+error.passwordTooShort: "The password is too short."
+error.passwordTooLong: "The password is too long."
+error.passwordUnsafe: "This password is not safe, please choose another one."
+error.tooManyAccountsPerIp: "Too many accounts are registered from your IP address."
+error.timeout: "You took too long to authenticate."
+error.premiumAccount: "This account belongs to a premium player. Joining from an offline account is not allowed."
+error.offlineAccount: "This account was registered from an offline account. Joining with a premium account is not allowed. Please contact the staff."
+
+# Admin
+admin.usage: "Usage: /hlauth <register|unregister|changepassword|info|reload>"
+admin.registered: "Account of {player} has been registered."
+admin.unregistered: "Account of {player} has been deleted."
+admin.passwordChanged: "Password of {player} has been changed."
+admin.reloaded: "hlAuth configuration reloaded."
+admin.info: "Account {player} | premium: {premium} | registered: {registrationDate} (ip: {registrationIp}) | last login: {lastLogin} (ip: {lastIp})"

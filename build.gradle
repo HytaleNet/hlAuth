@@ -1,0 +1,29 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.authme'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+// Path to the local Hytale server jar. Override with -PhytaleServerJar=<path>
+def hytaleServerJar = providers.gradleProperty('hytaleServerJar')
+    .orElse(System.getenv('APPDATA') + '/HLauncher/install/release/package/game/latest/Server/HytaleServer.jar')
+    .get()
+
+dependencies {
+    compileOnly files(hytaleServerJar)
+}
+
+jar {
+    archiveBaseName = 'hlAuth'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

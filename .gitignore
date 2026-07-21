@@ -1,0 +1,23 @@
+# Build
+build/
+.gradle/
+out/
+*.class
+*.jar
+!src/**/*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local / secrets
+*.log
+accounts.json
+config.json
