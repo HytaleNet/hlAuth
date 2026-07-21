@@ -1,6 +1,6 @@
 # hlAuth (AuthMe for Hytale)
 
-Плагин авторизации для **Hytale Server API** с нативными UI-меню. Вдохновлён [AuthMeReloaded](https://github.com/AuthMe/AuthMeReloaded).
+Плагин авторизации для **Hytale Server** с нативными UI-меню. Вдохновлён [AuthMeReloaded](https://github.com/AuthMe/AuthMeReloaded).
 
 **Авторы:** Chernyash, HytaleNet HLauncher · [github.com/HytaleNet/hlAuth](https://github.com/HytaleNet/hlAuth)
 
