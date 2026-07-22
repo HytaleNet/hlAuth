@@ -1,66 +1,67 @@
 # hlAuth (AuthMe for Hytale)
 
-Плагин авторизации для **Hytale Server** с нативными UI-меню. Вдохновлён [AuthMeReloaded](https://github.com/AuthMe/AuthMeReloaded).
+Authentication plugin for **Hytale Server** with native UI menus. Inspired by [AuthMeReloaded](https://github.com/AuthMe/AuthMeReloaded).
 
-**Авторы:** Chernyash, HytaleNet HLauncher · [github.com/HytaleNet/hlAuth](https://github.com/HytaleNet/hlAuth)
+**Authors:** Chernyash, HytaleNet HLauncher · [github.com/HytaleNet/hlAuth](https://github.com/HytaleNet/hlAuth)
 
-## Возможности
+> Русская версия: [README-ru.md](README-ru.md)
 
-- **Нативные UI-меню** входа и регистрации (Hytale Custom UI, стиль ванильных страниц сервера). Меню нельзя закрыть, пока игрок не авторизуется.
-- **Регистрация и вход** — через меню или командами в чате (меню закрывается и при команде).
-- **Безопасное хранение паролей** — PBKDF2-HMAC-SHA256 (100 000 итераций, соль). Поддерживается проверка легаси-формата AuthMe `$SHA$` — базу с Minecraft-сервера можно перенести без сброса паролей.
-- **Сессии** — при переподключении с того же IP в течение настраиваемого времени вход не требуется.
-- **Лимбо-защита** — до входа игрок не может писать в чат, через `timeoutSeconds` секунд его кикает.
-- **Premium-проверка** (опционально) — сверка UUID с [playerdb.co](https://playerdb.co): premium-аккаунты входят автоматически; при `premiumAutoRegister` новый premium регистрируется без пароля; offline не может занять premium-ник и наоборот.
-- **Локализация** — тексты в `messages/ru.yml` и `messages/en.yml`, язык выбирается в конфиге.
-- **Права LuckPerms** — узлы `hlauth.player.*` / `hlauth.admin.*`.
-- **Хранилище** — JSON flat-file (`accounts.json`), атомарная асинхронная запись.
+## Features
 
+- **Native UI menus** for login and registration (Hytale Custom UI, vanilla server page style). The menu cannot be closed until the player authenticates.
+- **Registration and login** — via the menu or chat commands (the menu also closes when using a command).
+- **Secure password storage** — PBKDF2-HMAC-SHA256 (100,000 iterations, salted). Supports checking the legacy AuthMe `$SHA$` format — you can migrate a Minecraft server database without resetting passwords.
+- **Sessions** — reconnecting from the same IP within a configurable time does not require logging in again.
+- **Limbo protection** — until login, the player cannot use chat; after `timeoutSeconds` they are kicked.
+- **Premium check** (optional) — UUID verification via [playerdb.co](https://playerdb.co): premium accounts auto-login; with `premiumAutoRegister`, a new premium account is registered without a password; offline players cannot take a premium name and vice versa.
+- **Localization** — texts in `messages/ru.yml` and `messages/en.yml`; language is selected in the config.
+- **LuckPerms permissions** — nodes `hlauth.player.*` / `hlauth.admin.*`.
+- **Storage** — JSON flat-file (`accounts.json`), atomic asynchronous writes.
 
-## Команды
+## Commands
 
-| Команда | Описание |
+| Command | Description |
 |---|---|
-| `/login <пароль>` (`/l`) | Вход |
-| `/register <пароль> <пароль>` (`/reg`) | Регистрация |
-| `/logout` | Выход (сессия сбрасывается) |
-| `/changepassword <старый> <новый>` (`/cp`) | Смена пароля |
-| `/unregister <пароль>` | Удаление своего аккаунта (кик с сервера) |
-| `/hlauth register <ник> <пароль>` (`/authme …`) | Админ: зарегистрировать игрока |
-| `/hlauth unregister <ник>` | Админ: удалить аккаунт (кик онлайн-игрока) |
-| `/hlauth changepassword <ник> <пароль>` | Админ: сменить пароль |
-| `/hlauth info <ник>` | Админ: информация об аккаунте |
-| `/hlauth reload` | Админ: перезагрузка конфига и messages |
+| `/login <password>` (`/l`) | Log in |
+| `/register <password> <password>` (`/reg`) | Register |
+| `/logout` | Log out (session is cleared) |
+| `/changepassword <old> <new>` (`/cp`) | Change password |
+| `/unregister <password>` | Delete your own account (kicked from the server) |
+| `/hlauth register <name> <password>` (`/authme …`) | Admin: register a player |
+| `/hlauth unregister <name>` | Admin: delete an account (kicks online player) |
+| `/hlauth changepassword <name> <password>` | Admin: change password |
+| `/hlauth info <name>` | Admin: account info |
+| `/hlauth reload` | Admin: reload config and messages |
 
-### Права (LuckPerms)
+### Permissions (LuckPerms)
 
-| Permission | Описание |
+| Permission | Description |
 |---|---|
 | `hlauth.player.login` | `/login` |
 | `hlauth.player.register` | `/register` |
 | `hlauth.player.logout` | `/logout` |
 | `hlauth.player.changepassword` | `/changepassword` |
 | `hlauth.player.unregister` | `/unregister` |
-| `hlauth.admin` | корень `/hlauth` (алиас `/authme`) |
+| `hlauth.admin` | Root `/hlauth` (alias `/authme`) |
 | `hlauth.admin.register` | `/hlauth register` |
 | `hlauth.admin.unregister` | `/hlauth unregister` |
 | `hlauth.admin.changepassword` | `/hlauth changepassword` |
 | `hlauth.admin.info` | `/hlauth info` |
 | `hlauth.admin.reload` | `/hlauth reload` |
 
-Игровые команды по умолчанию выдаются группе `hytale:Adventurer`. Админ-права выдавайте через LuckPerms (`hlauth.admin` или `hlauth.admin.*`).
+Player commands are granted to the `hytale:Adventurer` group by default. Grant admin permissions via LuckPerms (`hlauth.admin` or `hlauth.admin.*`).
 
-Формат `config.json` и `accounts.json` не менялся. При обновлении с папки `AuthMe_AuthMeHytale` данные автоматически переносятся в `HytaleNet_hlAuth`.
+The `config.json` and `accounts.json` formats are unchanged. When updating from the `AuthMe_AuthMeHytale` folder, data is migrated automatically to `HytaleNet_hlAuth`.
 
-## Сборка
+## Building
 
-Требуется JDK 21+ (проверено на JDK 25) и локальный `HytaleServer.jar`.
+Requires JDK 21+ (tested on JDK 25) and a local `HytaleServer.jar`.
 
-**PowerShell (без Gradle):**
+**PowerShell (no Gradle):**
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File build.ps1
-# или с явным путём к серверному jar:
+# or with an explicit path to the server jar:
 powershell -ExecutionPolicy Bypass -File build.ps1 -ServerJar "D:\path\to\HytaleServer.jar"
 ```
 
@@ -70,43 +71,43 @@ powershell -ExecutionPolicy Bypass -File build.ps1 -ServerJar "D:\path\to\Hytale
 gradle build -PhytaleServerJar="D:/path/to/HytaleServer.jar"
 ```
 
-Готовый jar: `build/libs/hlAuth-1.0.0.jar`.
+Built jar: `build/libs/hlAuth-1.0.0.jar`.
 
-## Установка
+## Installation
 
-Скопируйте `hlAuth-1.0.0.jar` в папку `mods/` вашего Hytale-сервера и перезапустите сервер.
+Copy `hlAuth-X.X.X.jar` into your Hytale server’s `mods/` folder and restart the server.
 
-## Конфигурация
+## Configuration
 
-После первого запуска создаётся `mods/HytaleNet_hlAuth/config.json`:
+After the first launch, `mods/HytaleNet_hlAuth/config.json` is created:
 
-| Опция | По умолчанию | Описание |
+| Option | Default | Description |
 |---|---|---|
-| `language` | `"ru"` | Файл языка в `messages/` без `.yml` (`ru`, `en`, …) |
-| `registrationEnabled` | `true` | Обязательная регистрация новых игроков |
-| `timeoutSeconds` | `120` | Кик, если игрок не авторизовался за это время |
-| `passwordMinLength` / `passwordMaxLength` | `5` / `64` | Ограничения длины пароля |
-| `unsafePasswords` | `[...]` | Запрещённые пароли |
-| `maxRegistrationsPerIp` | `2` | Максимум аккаунтов с одного IP (0 = без лимита) |
-| `maxLoginTries` | `5` | Кик после N неверных паролей |
-| `kickOnWrongPassword` | `false` | Кик сразу при неверном пароле |
-| `sessionsEnabled` | `true` | Автовход по сессии |
-| `sessionTimeoutMinutes` | `10` | Время жизни сессии |
-| `useUiMenus` | `true` | UI-меню вместо только чат-команд |
-| `uiOpenDelayMs` | `1000` | Задержка открытия меню (мс), снижает глитч текстур |
-| `premiumCheckEnabled` | `false` | Проверка UUID через playerdb.co |
-| `premiumCheckTimeoutSeconds` | `5` | Таймаут запроса premium |
-| `premiumKickEnabled` | `false` | Кик при premium/offline mismatch (иначе UI-плашка) |
-| `premiumAutoRegister` | `false` | Автовход и авторегистрация verified premium без пароля (нужен `premiumCheckEnabled`) |
-| `protectChat` | `true` | Блокировать чат до входа |
-| `messageIntervalSeconds` | `15` | Интервал напоминаний в чате |
+| `language` | `"ru"` | Language file in `messages/` without `.yml` (`ru`, `en`, …) |
+| `registrationEnabled` | `true` | Require new players to register |
+| `timeoutSeconds` | `120` | Kick if the player does not authenticate in time |
+| `passwordMinLength` / `passwordMaxLength` | `5` / `64` | Password length limits |
+| `unsafePasswords` | `[...]` | Forbidden passwords |
+| `maxRegistrationsPerIp` | `2` | Max accounts per IP (0 = unlimited) |
+| `maxLoginTries` | `5` | Kick after N wrong passwords |
+| `kickOnWrongPassword` | `false` | Kick immediately on wrong password |
+| `sessionsEnabled` | `true` | Auto re-login via session |
+| `sessionTimeoutMinutes` | `10` | Session lifetime |
+| `useUiMenus` | `true` | UI menus instead of chat commands only |
+| `uiOpenDelayMs` | `1000` | Menu open delay (ms); reduces UI texture glitches |
+| `premiumCheckEnabled` | `false` | UUID check via playerdb.co |
+| `premiumCheckTimeoutSeconds` | `5` | Premium request timeout |
+| `premiumKickEnabled` | `false` | Kick on premium/offline mismatch (otherwise Access Denied UI) |
+| `premiumAutoRegister` | `false` | Auto-login and auto-register verified premium without a password (requires `premiumCheckEnabled`) |
+| `protectChat` | `true` | Block chat until login |
+| `messageIntervalSeconds` | `15` | Chat reminder interval |
 
-Аккаунты: `mods/HytaleNet_hlAuth/accounts.json`.  
-Сообщения: `mods/HytaleNet_hlAuth/messages/ru.yml` (можно добавить `en.yml`, `de.yml` и указать `language` в конфиге).
+Accounts: `mods/HytaleNet_hlAuth/accounts.json`.  
+Messages: `mods/HytaleNet_hlAuth/messages/en.yml` (you can add `ru.yml`, `de.yml`, etc. and set `language` in the config).
 
-## Перенос базы с Minecraft (AuthMeReloaded)
+## Migrating a database from Minecraft (AuthMeReloaded)
 
-Хэши формата `$SHA$соль$хэш` (SHA256 — алгоритм AuthMe по умолчанию) проверяются напрямую. Сконвертируйте вашу таблицу `authme` в `accounts.json` вида:
+Hashes in the `$SHA$salt$hash` format (SHA-256 — AuthMe’s default algorithm) are verified directly. Convert your `authme` table into an `accounts.json` like this:
 
 ```json
 [
