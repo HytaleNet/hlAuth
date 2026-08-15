@@ -17,13 +17,13 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import javax.annotation.Nonnull;
 
 /**
- * Non-dismissible registration form shown to new players.
+ * Asks for a 6-digit authenticator code after the password (or session) step.
  */
-public final class RegisterPage extends InteractiveCustomUIPage<AuthEventData> {
+public final class TotpVerifyPage extends InteractiveCustomUIPage<AuthEventData> {
 
     private final AuthMePlugin plugin;
 
-    public RegisterPage(@Nonnull PlayerRef playerRef, AuthMePlugin plugin) {
+    public TotpVerifyPage(@Nonnull PlayerRef playerRef, AuthMePlugin plugin) {
         super(playerRef, CustomPageLifetime.CantClose, AuthEventData.CODEC);
         this.plugin = plugin;
     }
@@ -33,19 +33,21 @@ public final class RegisterPage extends InteractiveCustomUIPage<AuthEventData> {
                       @Nonnull UICommandBuilder commandBuilder,
                       @Nonnull UIEventBuilder eventBuilder,
                       @Nonnull Store<EntityStore> store) {
-        commandBuilder.append("Pages/hlAuthRegisterPage.ui");
+        commandBuilder.append("Pages/hlAuthTotpVerifyPage.ui");
         applyTexts(commandBuilder);
 
         eventBuilder.addEventBinding(
             CustomUIEventBindingType.Activating,
-            "#RegisterButton",
-            EventData.of("Action", "Register")
-                .append("@Password", "#PasswordInput.Value")
-                .append("@Confirm", "#ConfirmInput.Value"),
+            "#ConfirmButton",
+            EventData.of("Action", "TotpVerify").append("@Code", "#CodeInput.Value"),
+            false);
+        eventBuilder.addEventBinding(
+            CustomUIEventBindingType.Activating,
+            "#CancelButton",
+            EventData.of("Action", "TotpCancel"),
             false);
     }
 
-    /** Fills labels from messages.yml — call again after open to fix first-frame layout glitches. */
     public void refreshTexts() {
         UICommandBuilder update = new UICommandBuilder();
         applyTexts(update);
@@ -55,37 +57,36 @@ public final class RegisterPage extends InteractiveCustomUIPage<AuthEventData> {
 
     private void applyTexts(UICommandBuilder commands) {
         Messages msg = plugin.getMessages();
-        commands.set("#TitleLabel.Text", msg.text("ui.register.title"));
-        commands.set("#Welcome.Text", msg.text("ui.register.welcome"));
-        commands.set("#PasswordLabel.Text", msg.text("ui.password"));
-        commands.set("#PasswordInput.PlaceholderText", msg.text("ui.password.placeholder"));
-        commands.set("#ConfirmLabel.Text", msg.text("ui.password.confirm"));
-        commands.set("#ConfirmInput.PlaceholderText", msg.text("ui.password.confirmPlaceholder"));
-        commands.set("#RegisterButton.Text", msg.text("ui.register.button"));
-        commands.set("#Hint.Text", msg.text("ui.register.hint"));
+        commands.set("#TitleLabel.Text", msg.text("ui.2fa.verify.title"));
+        commands.set("#Welcome.Text", msg.text("ui.2fa.verify.welcome"));
+        commands.set("#CodeLabel.Text", msg.text("ui.2fa.code"));
+        commands.set("#CodeInput.PlaceholderText", msg.text("ui.2fa.code.placeholder"));
+        commands.set("#ConfirmButton.Text", msg.text("ui.2fa.verify.button"));
+        commands.set("#CancelButton.Text", msg.text("ui.2fa.cancel"));
+        commands.set("#Hint.Text", msg.text("ui.2fa.verify.hint"));
     }
 
     @Override
     public void handleDataEvent(@Nonnull Ref<EntityStore> ref,
                                 @Nonnull Store<EntityStore> store,
                                 @Nonnull AuthEventData data) {
-        if (!"Register".equals(data.getAction())) {
+        if ("TotpCancel".equals(data.getAction())) {
+            TwoFactorPages.cancel(plugin, playerRef, store, ref);
             return;
         }
-        AuthService.Result result = plugin.getAuthService()
-            .register(playerRef, data.getPassword(), data.getConfirm());
-        if (TwoFactorPages.open(plugin, playerRef, store, ref, result)) {
-            playerRef.sendMessage(result.message());
+        if (!"TotpVerify".equals(data.getAction())) {
             return;
         }
+        AuthService.Result result = plugin.getTotpService().verifyLoginCode(playerRef, data.getCode());
         if (result.success()) {
             close();
             playerRef.sendMessage(result.message());
-        } else {
-            UICommandBuilder update = new UICommandBuilder();
-            update.set("#Error.Visible", true);
-            update.set("#Error.Text", result.message().getRawText());
-            sendUpdate(update, false);
+            return;
         }
+        UICommandBuilder update = new UICommandBuilder();
+        update.set("#Error.Visible", true);
+        update.set("#Error.Text", result.message().getRawText());
+        update.set("#CodeInput.Value", "");
+        sendUpdate(update, false);
     }
 }

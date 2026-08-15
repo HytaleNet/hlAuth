@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
+import javax.annotation.Nullable;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
@@ -19,7 +20,14 @@ import java.util.concurrent.TimeUnit;
 public final class AuthService {
 
     /** Result of a login/register attempt, carrying a localized message. */
-    public record Result(boolean success, Message message) {
+    public record Result(Status status, Message message) {
+        public enum Status {
+            SUCCESS, FAILURE, TOTP_VERIFY, TOTP_SETUP, TOTP_RECOVERY
+        }
+
+        public boolean success() {
+            return status == Status.SUCCESS;
+        }
     }
 
     private final AuthMePlugin plugin;
@@ -29,11 +37,11 @@ public final class AuthService {
     }
 
     private Result ok(String key) {
-        return new Result(true, plugin.getMessages().get(key));
+        return new Result(Result.Status.SUCCESS, plugin.getMessages().get(key));
     }
 
     private Result fail(String key) {
-        return new Result(false, plugin.getMessages().get(key));
+        return new Result(Result.Status.FAILURE, plugin.getMessages().get(key));
     }
 
     // ------------------------------------------------------------------
@@ -71,21 +79,19 @@ public final class AuthService {
         auth.premium = config.premiumCheckEnabled
             && plugin.getPremiumService().isVerifiedPremium(player.getUuid());
         plugin.getDataSource().saveAuth(auth);
-        finishAuth(player);
-
         plugin.getLogger().atInfo().log("Player %s registered (ip: %s, premium: %s)",
             name, ip, auth.premium);
-        return ok("register.success");
+        return continueAfterCredential(player, auth, "register.success");
     }
 
     /**
      * Registers a verified premium player without a password and lets them in.
      * The stored hash is a random secret so offline clients cannot log in with an empty password.
      */
-    public boolean registerPremiumAuto(PlayerRef player) {
+    public Result registerPremiumAuto(PlayerRef player) {
         String name = player.getUsername();
         if (plugin.getDataSource().isRegistered(name)) {
-            return false;
+            return fail("error.alreadyRegistered");
         }
         String ip = getIp(player);
         String randomSecret = java.util.UUID.randomUUID() + ":" + player.getUuid();
@@ -95,9 +101,8 @@ public final class AuthService {
         auth.lastLogin = System.currentTimeMillis();
         auth.premium = true;
         plugin.getDataSource().saveAuth(auth);
-        finishAuth(player);
         plugin.getLogger().atInfo().log("Player %s auto-registered as premium (ip: %s)", name, ip);
-        return true;
+        return continueAfterCredential(player, auth, "register.premium");
     }
 
     // ------------------------------------------------------------------
@@ -134,8 +139,7 @@ public final class AuthService {
             return fail("error.wrongPassword");
         }
 
-        completeLogin(player, auth);
-        return ok("login.success");
+        return continueAfterCredential(player, auth, "login.success");
     }
 
     /**
@@ -174,6 +178,30 @@ public final class AuthService {
         }
     }
 
+    /**
+     * After a valid password / premium check: either finish login or start a 2FA step.
+     *
+     * @param skipTwoFactor true for short IP sessions when {@code twoFactorRequiredOnSession} is false
+     */
+    public Result continueAfterCredential(PlayerRef player, PlayerAuth auth, String successKey) {
+        return continueAfterCredential(player, auth, successKey, false);
+    }
+
+    public Result continueAfterCredential(PlayerRef player, PlayerAuth auth, String successKey, boolean skipTwoFactor) {
+        if (!skipTwoFactor && plugin.getConfig().isTwoFactorEnabled()) {
+            if (TotpService.isBound(auth)) {
+                plugin.getTotpService().beginVerify(player.getUuid());
+                return new Result(Result.Status.TOTP_VERIFY, plugin.getMessages().get("2fa.verify.needed"));
+            }
+            if (plugin.getConfig().isTwoFactorRequired()) {
+                plugin.getTotpService().beginSetup(player, true);
+                return new Result(Result.Status.TOTP_SETUP, plugin.getMessages().get("2fa.setup.needed"));
+            }
+        }
+        completeLogin(player, auth);
+        return ok(successKey);
+    }
+
     /** Marks the player authenticated and refreshes the stored session data. */
     public void completeLogin(PlayerRef player, PlayerAuth auth) {
         auth.lastIp = getIp(player);
@@ -188,37 +216,41 @@ public final class AuthService {
         plugin.getLimboService().markAuthenticated(player.getUuid());
         Ref<EntityStore> ref = player.getReference();
         if (ref != null && ref.isValid()) {
-            LimboProtection.setInvulnerable(ref, ref.getStore(), false);
+            LimboProtection.apply(ref, ref.getStore(), false);
         }
     }
 
-    /** Attempts session auto-login: same IP, same UUID and within the session timeout window. */
-    public boolean tryAutoLogin(PlayerRef player) {
+    /**
+     * Attempts session auto-login: same IP, same UUID and within the session timeout window.
+     *
+     * @return {@code null} when the session does not apply
+     */
+    @Nullable
+    public Result tryAutoLogin(PlayerRef player) {
         AuthMeConfig config = plugin.getConfig();
         if (!config.sessionsEnabled) {
-            return false;
+            return null;
         }
         PlayerAuth auth = plugin.getDataSource().getAuth(player.getUsername());
         if (auth == null || auth.lastIp == null || auth.lastLogin <= 0) {
-            return false;
+            return null;
         }
         // Never resume a session across different client identities (offline ↔ premium UUID)
         if (auth.uuid != null && !auth.uuid.isEmpty()
                 && !auth.uuid.equalsIgnoreCase(player.getUuid().toString())) {
-            return false;
+            return null;
         }
         if (checkPremiumMismatch(player, auth) != null) {
-            return false;
+            return null;
         }
         long sessionMillis = config.sessionTimeoutMinutes * 60_000L;
         boolean sameIp = auth.lastIp.equals(getIp(player));
         boolean fresh = System.currentTimeMillis() - auth.lastLogin < sessionMillis;
         if (sameIp && fresh) {
-            completeLogin(player, auth);
-            player.sendMessage(plugin.getMessages().get("login.sessionResumed"));
-            return true;
+            boolean skipTwoFactor = !config.twoFactorRequiredOnSession;
+            return continueAfterCredential(player, auth, "login.sessionResumed", skipTwoFactor);
         }
-        return false;
+        return null;
     }
 
     // ------------------------------------------------------------------
@@ -236,9 +268,10 @@ public final class AuthService {
             plugin.getDataSource().updateAuth(auth);
         }
         plugin.getLimboService().revokeAuthentication(player.getUuid());
+        plugin.getTotpService().clear(player.getUuid());
         Ref<EntityStore> ref = player.getReference();
         if (ref != null && ref.isValid()) {
-            LimboProtection.setInvulnerable(ref, ref.getStore(), true);
+            LimboProtection.apply(ref, ref.getStore(), true);
         }
         return ok("logout.success");
     }

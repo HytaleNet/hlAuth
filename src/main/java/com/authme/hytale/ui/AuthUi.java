@@ -15,6 +15,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import javax.annotation.Nullable;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /** Helpers for opening / closing AuthMe custom pages. */
 public final class AuthUi {
@@ -71,11 +72,57 @@ public final class AuthUi {
     }
 
     /**
+     * Runs {@code action} on the player's world thread with a freshly resolved entity.
+     * Returns false if the player/world could not be resolved.
+     */
+    public static boolean runOnWorldThread(@Nullable PlayerRef playerRef, Consumer<LivePlayer> action) {
+        if (playerRef == null || !playerRef.isValid()) {
+            return false;
+        }
+        World world = resolveWorld(playerRef);
+        if (world == null) {
+            LivePlayer live = resolveLive(playerRef);
+            if (live == null) {
+                return false;
+            }
+            action.accept(live);
+            return true;
+        }
+        world.execute(() -> {
+            LivePlayer live = resolveLive(playerRef);
+            if (live != null) {
+                action.accept(live);
+            }
+        });
+        return true;
+    }
+
+    @Nullable
+    public static LivePlayer resolveLive(@Nullable PlayerRef playerRef) {
+        if (playerRef == null || !playerRef.isValid()) {
+            return null;
+        }
+        Ref<EntityStore> ref = playerRef.getReference();
+        if (ref == null || !ref.isValid()) {
+            return null;
+        }
+        Store<EntityStore> store = ref.getStore();
+        Player player = store.getComponent(ref, Player.getComponentType());
+        if (player == null) {
+            return null;
+        }
+        return new LivePlayer(playerRef, player, ref, store);
+    }
+
+    /**
      * Resolves the player's world without touching Store from a foreign thread.
      * Uses {@link PlayerRef#getWorldUuid()} + {@link Universe#getWorld(UUID)}.
      */
     @Nullable
-    private static World resolveWorld(PlayerRef playerRef) {
+    public static World resolveWorld(@Nullable PlayerRef playerRef) {
+        if (playerRef == null) {
+            return null;
+        }
         try {
             UUID worldUuid = playerRef.getWorldUuid();
             if (worldUuid != null) {
@@ -102,6 +149,14 @@ public final class AuthUi {
         CustomUIPage page = player.getPageManager().getCustomPage();
         return page instanceof LoginPage
             || page instanceof RegisterPage
-            || page instanceof AccessDeniedPage;
+            || page instanceof AccessDeniedPage
+            || TwoFactorPages.isTwoFactorPage(page);
+    }
+
+    public record LivePlayer(
+            PlayerRef playerRef,
+            Player player,
+            Ref<EntityStore> ref,
+            Store<EntityStore> store) {
     }
 }

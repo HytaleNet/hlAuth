@@ -1,7 +1,7 @@
 {
   "Group": "HytaleNet",
   "Name": "hlAuth",
-  "Version": "1.0.0",
+  "Version": "1.0.1",
   "Description": "Authentication plugin for Hytale servers: registration and login with native UI menus, sessions and secure password hashing. Inspired by AuthMeReloaded.",
   "Authors": [
     {

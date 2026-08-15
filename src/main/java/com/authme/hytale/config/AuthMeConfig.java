@@ -76,6 +76,48 @@ public final class AuthMeConfig {
     /** Interval in seconds between "please login" reminders in chat (0 = disabled). */
     public int messageIntervalSeconds = 15;
 
+    // --- Two-factor authentication (TOTP) ---
+    /** Master switch. When false, 2FA is ignored even if an account already has it bound. */
+    public boolean twoFactorEnabled = false;
+    /** When true (and {@link #twoFactorEnabled}), every player must bind an authenticator after password. */
+    public boolean twoFactorRequired = false;
+    /** When true, a valid IP session still asks for a 2FA code. */
+    public boolean twoFactorRequiredOnSession = false;
+    /** Issuer name shown in Authenticator / Aegis / 2FAS. */
+    public String twoFactorIssuer = "hlAuth";
+
+    // --- Storage ---
+    /** Account backend: {@code json} (accounts.json), {@code h2} (file DB) or {@code mysql}. */
+    public String storageType = "json";
+    /** MySQL / remote host. Ignored for embedded H2 unless {@link #databaseJdbcUrl} is empty and type is mysql. */
+    public String databaseHost = "127.0.0.1";
+    public int databasePort = 3306;
+    /** Schema / database name (MySQL). Created automatically if the user can CREATE DATABASE. */
+    public String databaseName = "hlauth";
+    public String databaseUsername = "hlauth";
+    public String databasePassword = "";
+    /** SQL table name (letters, digits, underscore). */
+    public String databaseTable = "hlauth_accounts";
+    /**
+     * Full JDBC URL. When set, host/port/name are ignored.
+     * Examples: {@code jdbc:mysql://db.example.com:3306/hlauth}, {@code jdbc:h2:tcp://127.0.0.1:9092/hlauth}
+     */
+    public String databaseJdbcUrl = "";
+    /** MySQL SSL. Ignored when {@link #databaseJdbcUrl} is set (put useSSL in the URL). */
+    public boolean databaseUseSsl = false;
+    /** Connection pool size (1–16). */
+    public int databasePoolSize = 4;
+
+    // --- Backups ---
+    /** Periodic snapshots of all accounts into the backups/ folder. */
+    public boolean backupEnabled = false;
+    /** Auto-backup interval, hours part (added to {@link #backupIntervalMinutes}). */
+    public int backupIntervalHours = 6;
+    /** Auto-backup interval, extra minutes (e.g. hours=0 minutes=30 → every 30 minutes). */
+    public int backupIntervalMinutes = 0;
+    /** How many backup files to keep (oldest are deleted). 0 = keep all. */
+    public int backupKeepCount = 24;
+
     public static AuthMeConfig load(Path dataDirectory, HytaleLogger logger) {
         Path file = dataDirectory.resolve("config.json");
         AuthMeConfig config = new AuthMeConfig();
@@ -107,6 +149,30 @@ public final class AuthMeConfig {
         if (loaded.unsafePasswords == null) {
             loaded.unsafePasswords = defaults.unsafePasswords;
         }
+        if (loaded.twoFactorIssuer == null || loaded.twoFactorIssuer.isBlank()) {
+            loaded.twoFactorIssuer = defaults.twoFactorIssuer;
+        }
+        if (loaded.storageType == null || loaded.storageType.isBlank()) {
+            loaded.storageType = defaults.storageType;
+        }
+        if (loaded.databaseHost == null || loaded.databaseHost.isBlank()) {
+            loaded.databaseHost = defaults.databaseHost;
+        }
+        if (loaded.databaseName == null || loaded.databaseName.isBlank()) {
+            loaded.databaseName = defaults.databaseName;
+        }
+        if (loaded.databaseUsername == null) {
+            loaded.databaseUsername = defaults.databaseUsername;
+        }
+        if (loaded.databasePassword == null) {
+            loaded.databasePassword = defaults.databasePassword;
+        }
+        if (loaded.databaseTable == null || loaded.databaseTable.isBlank()) {
+            loaded.databaseTable = defaults.databaseTable;
+        }
+        if (loaded.databaseJdbcUrl == null) {
+            loaded.databaseJdbcUrl = defaults.databaseJdbcUrl;
+        }
         return loaded;
     }
 
@@ -118,6 +184,15 @@ public final class AuthMeConfig {
             }
         }
         return true;
+    }
+
+    public boolean isTwoFactorEnabled() {
+        return twoFactorEnabled;
+    }
+
+    /** Mandatory bind after password. Requires the master switch. */
+    public boolean isTwoFactorRequired() {
+        return twoFactorEnabled && twoFactorRequired;
     }
 
     /** Removes line (//) and block comments from JSONC so Gson can parse the file. */
@@ -254,9 +329,72 @@ public final class AuthMeConfig {
         field(sb, "protectChat", String.valueOf(c.protectChat),
             "EN: Block chat messages from players who are not logged in.",
             "RU: Блокировать чат игроков, которые ещё не вошли.");
-        fieldLast(sb, "messageIntervalSeconds", String.valueOf(c.messageIntervalSeconds),
+        field(sb, "messageIntervalSeconds", String.valueOf(c.messageIntervalSeconds),
             "EN: Seconds between \"please login\" chat reminders (0 = disabled).",
             "RU: Интервал напоминаний «войдите» в чате в секундах (0 = выкл).");
+
+        sb.append("\n");
+        sb.append("  // ── Two-factor / 2FA (TOTP) ──\n");
+        field(sb, "twoFactorEnabled", String.valueOf(c.twoFactorEnabled),
+            "EN: Enable TOTP 2FA (Google Authenticator, Aegis, 2FAS, …). false = feature off.",
+            "RU: Включить 2FA по TOTP (Google Authenticator, Aegis, 2FAS, …). false = выкл.");
+        field(sb, "twoFactorRequired", String.valueOf(c.twoFactorRequired),
+            "EN: If true, every player must bind an authenticator after the password (needs twoFactorEnabled).",
+            "RU: Если true, каждый игрок обязан привязать authenticator после пароля (нужен twoFactorEnabled).");
+        field(sb, "twoFactorRequiredOnSession", String.valueOf(c.twoFactorRequiredOnSession),
+            "EN: If true, session auto-login still asks for a 2FA code.",
+            "RU: Если true, автовход по сессии всё равно спрашивает код 2FA.");
+        field(sb, "twoFactorIssuer", quote(c.twoFactorIssuer),
+            "EN: Name shown in the authenticator app (otpauth issuer).",
+            "RU: Имя сервера в приложении-аутентификаторе (issuer в otpauth).");
+
+        sb.append("\n");
+        sb.append("  // ── Storage / Хранилище ──\n");
+        field(sb, "storageType", quote(c.storageType),
+            "EN: json = accounts.json; h2 = local file DB; mysql = MySQL (local or remote).",
+            "RU: json = accounts.json; h2 = локальный файл БД; mysql = MySQL (локальный или внешний).");
+        field(sb, "databaseHost", quote(c.databaseHost),
+            "EN: MySQL host (ignored for embedded H2, or when databaseJdbcUrl is set).",
+            "RU: Хост MySQL (не используется для встроенного H2 и если задан databaseJdbcUrl).");
+        field(sb, "databasePort", String.valueOf(c.databasePort),
+            "EN: MySQL port (default 3306).",
+            "RU: Порт MySQL (по умолчанию 3306).");
+        field(sb, "databaseName", quote(c.databaseName),
+            "EN: MySQL database name (created if the user is allowed to CREATE DATABASE).",
+            "RU: Имя базы MySQL (создаётся, если у пользователя есть CREATE DATABASE).");
+        field(sb, "databaseUsername", quote(c.databaseUsername),
+            "EN: Database user (MySQL, or H2 if the file/TCP server requires it).",
+            "RU: Пользователь БД (MySQL; для H2 — если файл/TCP этого требует).");
+        field(sb, "databasePassword", quote(c.databasePassword),
+            "EN: Database password. Do not share this file.",
+            "RU: Пароль БД. Не публикуйте этот файл.");
+        field(sb, "databaseTable", quote(c.databaseTable),
+            "EN: Table name for accounts.",
+            "RU: Имя таблицы аккаунтов.");
+        field(sb, "databaseUseSsl", String.valueOf(c.databaseUseSsl),
+            "EN: MySQL SSL (when databaseJdbcUrl is empty).",
+            "RU: SSL для MySQL (если databaseJdbcUrl пустой).");
+        field(sb, "databasePoolSize", String.valueOf(c.databasePoolSize),
+            "EN: JDBC connection pool size (1–16).",
+            "RU: Размер пула JDBC-соединений (1–16).");
+        field(sb, "databaseJdbcUrl", quote(c.databaseJdbcUrl),
+            "EN: Optional full JDBC URL. Overrides host/port/name. Examples: jdbc:mysql://db:3306/hlauth  or  jdbc:h2:tcp://127.0.0.1:9092/hlauth",
+            "RU: Полный JDBC URL (необязательно). Перебивает host/port/name. Пример: jdbc:mysql://db:3306/hlauth или jdbc:h2:tcp://127.0.0.1:9092/hlauth");
+
+        sb.append("\n");
+        sb.append("  // ── Backups / Резервные копии ──\n");
+        field(sb, "backupEnabled", String.valueOf(c.backupEnabled),
+            "EN: Automatic account backups into backups/ (json / H2 / MySQL).",
+            "RU: Автобекапы аккаунтов в backups/ (json / H2 / MySQL).");
+        field(sb, "backupIntervalHours", String.valueOf(c.backupIntervalHours),
+            "EN: Auto-backup interval, hours (added to backupIntervalMinutes). 6 + 0 = every 6 hours.",
+            "RU: Интервал автобекапа, часы (плюсуются к backupIntervalMinutes). 6 + 0 = каждые 6 часов.");
+        field(sb, "backupIntervalMinutes", String.valueOf(c.backupIntervalMinutes),
+            "EN: Extra minutes. 0 hours + 30 minutes = every 30 minutes. Total 0 disables the timer.",
+            "RU: Дополнительные минуты. 0 часов + 30 минут = каждые 30 минут. Сумма 0 — таймер выкл.");
+        fieldLast(sb, "backupKeepCount", String.valueOf(c.backupKeepCount),
+            "EN: How many backup files to keep (oldest deleted). 0 = keep all.",
+            "RU: Сколько файлов бекапа хранить (старые удаляются). 0 = хранить все.");
 
         sb.append("}\n");
         return sb.toString();

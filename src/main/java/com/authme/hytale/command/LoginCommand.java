@@ -3,6 +3,7 @@ package com.authme.hytale.command;
 import com.authme.hytale.AuthMePlugin;
 import com.authme.hytale.service.AuthService;
 import com.authme.hytale.ui.AuthUi;
+import com.authme.hytale.ui.TwoFactorPages;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
@@ -37,6 +38,9 @@ public final class LoginCommand extends AbstractPlayerCommand {
                            @Nonnull World world) {
         AuthService.Result result = plugin.getAuthService().login(playerRef, context.get(passwordArg));
         context.sendMessage(result.message());
+        if (TwoFactorPages.open(plugin, playerRef, store, ref, result)) {
+            return;
+        }
         if (result.success()) {
             AuthUi.close(store, ref);
         }

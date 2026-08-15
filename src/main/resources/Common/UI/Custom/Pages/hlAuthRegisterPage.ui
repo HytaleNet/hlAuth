@@ -1,4 +1,5 @@
 $C = "../Common.ui";
+$Sounds = "../Sounds.ui";
 
 $C.@PageOverlay {
   LayoutMode: Middle;
@@ -7,8 +8,10 @@ $C.@PageOverlay {
     Anchor: (Width: 460);
 
     #Title {
-      $C.@Title #TitleLabel {
-        @Text = "";
+      Label #TitleLabel {
+        Style: (...$C.@TitleStyle, HorizontalAlignment: Center);
+        Padding: (Horizontal: 19);
+        Text: "";
       }
     }
 
@@ -29,6 +32,7 @@ $C.@PageOverlay {
       $C.@TextField #PasswordInput {
         Anchor: (Top: 8, Height: 44);
         PlaceholderText: "";
+        PasswordChar: "•";
       }
 
       Label #ConfirmLabel {
@@ -40,6 +44,7 @@ $C.@PageOverlay {
       $C.@TextField #ConfirmInput {
         Anchor: (Top: 8, Height: 44);
         PlaceholderText: "";
+        PasswordChar: "•";
       }
 
       Label #Error {
@@ -53,6 +58,7 @@ $C.@PageOverlay {
         Anchor: (Top: 18);
 
         $C.@TextButton #RegisterButton {
+          @Sounds = $Sounds.@ButtonsLight;
           Text: "";
           FlexWeight: 1;
         }

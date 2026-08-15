@@ -1,4 +1,5 @@
 $C = "../Common.ui";
+$Sounds = "../Sounds.ui";
 
 $C.@PageOverlay {
   LayoutMode: Middle;
@@ -7,8 +8,10 @@ $C.@PageOverlay {
     Anchor: (Width: 480);
 
     #Title {
-      $C.@Title #TitleLabel {
-        @Text = "";
+      Label #TitleLabel {
+        Style: (...$C.@TitleStyle, HorizontalAlignment: Center);
+        Padding: (Horizontal: 19);
+        Text: "";
       }
     }
 
@@ -26,6 +29,7 @@ $C.@PageOverlay {
         Anchor: (Top: 10);
 
         $C.@CancelTextButton #ExitButton {
+          @Sounds = $Sounds.@ButtonsCancel;
           Text: "";
           FlexWeight: 1;
         }

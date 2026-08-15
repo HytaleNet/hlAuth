@@ -2,25 +2,28 @@ package com.authme.hytale.listener;
 
 import com.authme.hytale.AuthMePlugin;
 import com.authme.hytale.data.PlayerAuth;
+import com.authme.hytale.service.AuthService;
 import com.authme.hytale.service.LimboProtection;
 import com.authme.hytale.service.PremiumService;
 import com.authme.hytale.ui.AccessDeniedPage;
 import com.authme.hytale.ui.AuthUi;
 import com.authme.hytale.ui.LoginPage;
 import com.authme.hytale.ui.RegisterPage;
+import com.authme.hytale.ui.TwoFactorPages;
 import com.hypixel.hytale.component.Ref;
-import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.event.EventPriority;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Message;
-import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.player.PlayerChatEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerConnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
+import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerReadyEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+
+import javax.annotation.Nullable;
 
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -28,13 +31,15 @@ import java.util.concurrent.TimeUnit;
 /**
  * Hooks the authentication flow into the player lifecycle:
  * <ul>
- *   <li>connect: limbo + optional premium lookup</li>
- *   <li>ready: premium gate / session / UI (with delay + refresh)</li>
- *   <li>chat: blocked while in limbo</li>
+ *   <li>connect: limbo + freeze + optional premium lookup</li>
+ *   <li>ready: premium gate / session / UI (resolved live, with retries)</li>
+ *   <li>interact/chat: blocked while in limbo</li>
  *   <li>disconnect: cleanup</li>
  * </ul>
  */
 public final class PlayerListener {
+
+    private static final int[] UI_RETRY_MS = {0, 400, 1200, 2500};
 
     private final AuthMePlugin plugin;
 
@@ -48,6 +53,7 @@ public final class PlayerListener {
         events.register(PlayerConnectEvent.class, this::onConnect);
         events.registerGlobal(PlayerReadyEvent.class, this::onReady);
         events.register(PlayerDisconnectEvent.class, this::onDisconnect);
+        events.register(EventPriority.FIRST, PlayerMouseButtonEvent.class, this::onMouseButton);
 
         if (plugin.getConfig().protectChat) {
             events.registerAsyncGlobal(EventPriority.FIRST, PlayerChatEvent.class,
@@ -62,49 +68,81 @@ public final class PlayerListener {
             return;
         }
         plugin.getLimboService().addToLimbo(playerRef.getUuid());
+        LimboProtection.apply(event.getHolder(), true);
         if (plugin.getConfig().premiumCheckEnabled) {
             plugin.getPremiumService().startCheck(playerRef.getUuid());
         }
     }
 
     private void onReady(PlayerReadyEvent event) {
-        Ref<EntityStore> ref = event.getPlayerRef();
-        if (ref == null || !ref.isValid()) {
+        PlayerRef playerRef = playerRefFromEntity(event.getPlayerRef());
+        if (playerRef == null) {
             return;
         }
-        Store<EntityStore> store = ref.getStore();
-        PlayerRef playerRef = store.getComponent(ref, PlayerRef.getComponentType());
-        Player player = event.getPlayer();
-        if (playerRef == null || player == null) {
-            return;
+        World world = AuthUi.resolveWorld(playerRef);
+        Runnable run = () -> {
+            AuthUi.LivePlayer live = AuthUi.resolveLive(playerRef);
+            if (live != null) {
+                handleReady(live);
+            } else {
+                scheduleReadyRetry(playerRef);
+            }
+        };
+        if (world != null) {
+            world.execute(run);
+        } else {
+            run.run();
         }
+    }
+
+    private void scheduleReadyRetry(PlayerRef playerRef) {
+        HytaleServer.SCHEDULED_EXECUTOR.schedule(() -> {
+            World world = AuthUi.resolveWorld(playerRef);
+            Runnable run = () -> {
+                AuthUi.LivePlayer live = AuthUi.resolveLive(playerRef);
+                if (live != null) {
+                    handleReady(live);
+                }
+            };
+            if (world != null) {
+                world.execute(run);
+            } else {
+                run.run();
+            }
+        }, 400, TimeUnit.MILLISECONDS);
+    }
+
+    private void handleReady(AuthUi.LivePlayer live) {
+        PlayerRef playerRef = live.playerRef();
         if (plugin.getLimboService().isAuthenticated(playerRef.getUuid())) {
             return;
         }
 
-        // God-mode while waiting for login / on the denied plaque
-        LimboProtection.setInvulnerable(ref, store, true);
-
-        World world = store.getExternalData() instanceof EntityStore entityStore
-            ? entityStore.getWorld()
-            : null;
-        if (world == null) {
-            beginAuthFlow(playerRef, player, ref, store);
-            return;
-        }
+        LimboProtection.apply(live.ref(), live.store(), true);
 
         if (plugin.getConfig().premiumCheckEnabled) {
             UUID uuid = playerRef.getUuid();
-            plugin.getPremiumService().getResult(uuid).thenAccept(status ->
-                world.execute(() -> handlePremiumGate(playerRef, player, ref, store, status)));
+            World world = AuthUi.resolveWorld(playerRef);
+            plugin.getPremiumService().getResult(uuid).thenAccept(status -> {
+                Runnable gate = () -> {
+                    AuthUi.LivePlayer now = AuthUi.resolveLive(playerRef);
+                    if (now != null) {
+                        handlePremiumGate(now, status);
+                    }
+                };
+                if (world != null) {
+                    world.execute(gate);
+                } else {
+                    gate.run();
+                }
+            });
         } else {
-            beginAuthFlow(playerRef, player, ref, store);
+            beginAuthFlow(playerRef);
         }
     }
 
-    private void handlePremiumGate(PlayerRef playerRef, Player player,
-                                   Ref<EntityStore> ref, Store<EntityStore> store,
-                                   PremiumService.Status status) {
+    private void handlePremiumGate(AuthUi.LivePlayer live, PremiumService.Status status) {
+        PlayerRef playerRef = live.playerRef();
         if (!playerRef.isValid() || plugin.getLimboService().isAuthenticated(playerRef.getUuid())) {
             return;
         }
@@ -112,36 +150,39 @@ public final class PlayerListener {
         PlayerAuth auth = plugin.getDataSource().getAuth(playerRef.getUsername());
         if (auth != null) {
             if (auth.premium && status == PremiumService.Status.OFFLINE) {
-                denyAccess(playerRef, player, ref, store, AccessDeniedPage.Reason.PREMIUM_ACCOUNT);
+                denyAccess(playerRef, AccessDeniedPage.Reason.PREMIUM_ACCOUNT);
                 return;
             }
             if (!auth.premium && status == PremiumService.Status.PREMIUM) {
-                denyAccess(playerRef, player, ref, store, AccessDeniedPage.Reason.OFFLINE_ACCOUNT);
+                denyAccess(playerRef, AccessDeniedPage.Reason.OFFLINE_ACCOUNT);
                 return;
             }
             if (auth.premium && status == PremiumService.Status.PREMIUM) {
-                plugin.getAuthService().completeLogin(playerRef, auth);
-                playerRef.sendMessage(plugin.getMessages().get("login.premium"));
+                AuthService.Result result = plugin.getAuthService()
+                    .continueAfterCredential(playerRef, auth, "login.premium");
+                playerRef.sendMessage(result.message());
+                if (result.success()) {
+                    return;
+                }
+                TwoFactorPages.open(plugin, playerRef, result);
                 return;
             }
         } else if (status == PremiumService.Status.PREMIUM
                 && plugin.getConfig().premiumAutoRegister) {
-            if (plugin.getAuthService().registerPremiumAuto(playerRef)) {
-                playerRef.sendMessage(plugin.getMessages().get("register.premium"));
+            AuthService.Result result = plugin.getAuthService().registerPremiumAuto(playerRef);
+            if (result.status() != AuthService.Result.Status.FAILURE) {
+                playerRef.sendMessage(result.message());
+                if (!result.success()) {
+                    TwoFactorPages.open(plugin, playerRef, result);
+                }
                 return;
             }
         }
 
-        beginAuthFlow(playerRef, player, ref, store);
+        beginAuthFlow(playerRef);
     }
 
-    /**
-     * Blocks a mismatched premium/offline join: either kicks immediately
-     * ({@code premiumKickEnabled}) or shows a non-closable plaque with Exit.
-     */
-    private void denyAccess(PlayerRef playerRef, Player player,
-                            Ref<EntityStore> ref, Store<EntityStore> store,
-                            AccessDeniedPage.Reason reason) {
+    private void denyAccess(PlayerRef playerRef, AccessDeniedPage.Reason reason) {
         Message message = plugin.getMessages().get(reason.messageKey());
         if (plugin.getConfig().premiumKickEnabled) {
             plugin.getLimboService().removeFromLimbo(playerRef.getUuid());
@@ -149,32 +190,23 @@ public final class PlayerListener {
             return;
         }
 
-        // Keep the player in limbo (no chat / no auth) and show the plaque
-        LimboProtection.setInvulnerable(ref, store, true);
-        int delayMs = Math.max(0, plugin.getConfig().uiOpenDelayMs);
-        World world = store.getExternalData() instanceof EntityStore entityStore
-            ? entityStore.getWorld()
-            : null;
-        Runnable open = () -> {
-            if (!playerRef.isValid() || !ref.isValid()) {
-                return;
-            }
-            AccessDeniedPage page = new AccessDeniedPage(playerRef, plugin, reason);
-            player.getPageManager().openCustomPage(ref, store, page);
-            scheduleUiRefresh(store, page::refreshTexts);
-            playerRef.sendMessage(message);
-        };
-        if (delayMs > 0 && world != null) {
-            HytaleServer.SCHEDULED_EXECUTOR.schedule(
-                () -> world.execute(open), delayMs, TimeUnit.MILLISECONDS);
-        } else {
-            open.run();
-        }
+        scheduleUiAttempts(playerRef, live -> {
+            LimboProtection.apply(live.ref(), live.store(), true);
+            AccessDeniedPage page = new AccessDeniedPage(live.playerRef(), plugin, reason);
+            live.player().getPageManager().openCustomPage(live.ref(), live.store(), page);
+            page.refreshTexts();
+            live.playerRef().sendMessage(message);
+        });
     }
 
-    private void beginAuthFlow(PlayerRef playerRef, Player player,
-                               Ref<EntityStore> ref, Store<EntityStore> store) {
-        if (plugin.getAuthService().tryAutoLogin(playerRef)) {
+    private void beginAuthFlow(PlayerRef playerRef) {
+        AuthService.Result session = plugin.getAuthService().tryAutoLogin(playerRef);
+        if (session != null) {
+            playerRef.sendMessage(session.message());
+            if (session.success()) {
+                return;
+            }
+            TwoFactorPages.open(plugin, playerRef, session);
             return;
         }
 
@@ -186,59 +218,97 @@ public final class PlayerListener {
             return;
         }
 
-        int delayMs = Math.max(0, plugin.getConfig().uiOpenDelayMs);
-        World world = store.getExternalData() instanceof EntityStore entityStore
-            ? entityStore.getWorld()
-            : null;
+        scheduleUiAttempts(playerRef, live -> openAuthUi(live, registered));
+    }
 
-        Runnable open = () -> openAuthUi(playerRef, player, ref, store, registered);
-        if (delayMs > 0 && world != null) {
+    /**
+     * Opens UI after resolving the live entity (the Ready-event Ref can go stale
+     * after game updates). Retries a few times if the page did not stick.
+     */
+    private void scheduleUiAttempts(PlayerRef playerRef, LiveUiOpener opener) {
+        int baseDelay = Math.max(0, plugin.getConfig().uiOpenDelayMs);
+        for (int extra : UI_RETRY_MS) {
+            int delay = baseDelay + extra;
             HytaleServer.SCHEDULED_EXECUTOR.schedule(
-                () -> world.execute(open), delayMs, TimeUnit.MILLISECONDS);
-        } else {
-            open.run();
+                () -> attemptOpen(playerRef, opener),
+                delay, TimeUnit.MILLISECONDS);
         }
     }
 
-    private void openAuthUi(PlayerRef playerRef, Player player,
-                            Ref<EntityStore> ref, Store<EntityStore> store,
-                            boolean registered) {
-        if (!playerRef.isValid() || !ref.isValid()
+    private void attemptOpen(PlayerRef playerRef, LiveUiOpener opener) {
+        if (playerRef == null || !playerRef.isValid()
                 || plugin.getLimboService().isAuthenticated(playerRef.getUuid())) {
             return;
         }
-
-        if (registered) {
-            LoginPage page = new LoginPage(playerRef, plugin);
-            player.getPageManager().openCustomPage(ref, store, page);
-            scheduleUiRefresh(store, page::refreshTexts);
+        World world = AuthUi.resolveWorld(playerRef);
+        Runnable run = () -> {
+            if (!playerRef.isValid() || plugin.getLimboService().isAuthenticated(playerRef.getUuid())) {
+                return;
+            }
+            AuthUi.LivePlayer live = AuthUi.resolveLive(playerRef);
+            if (live == null) {
+                return;
+            }
+            if (AuthUi.isAuthPageOpen(live.store(), live.ref())) {
+                return;
+            }
+            LimboProtection.apply(live.ref(), live.store(), true);
+            try {
+                opener.open(live);
+            } catch (Exception e) {
+                plugin.getLogger().atWarning().withCause(e)
+                    .log("Failed to open auth UI for %s", playerRef.getUsername());
+            }
+        };
+        if (world != null) {
+            world.execute(run);
         } else {
-            RegisterPage page = new RegisterPage(playerRef, plugin);
-            player.getPageManager().openCustomPage(ref, store, page);
-            scheduleUiRefresh(store, page::refreshTexts);
+            run.run();
         }
     }
 
-    /** Second paint shortly after open — fixes skewed container textures on first frame. */
-    private void scheduleUiRefresh(Store<EntityStore> store, Runnable refresh) {
-        World world = store.getExternalData() instanceof EntityStore entityStore
-            ? entityStore.getWorld()
-            : null;
-        if (world == null) {
-            return;
+    private void openAuthUi(AuthUi.LivePlayer live, boolean registered) {
+        if (registered) {
+            LoginPage page = new LoginPage(live.playerRef(), plugin);
+            live.player().getPageManager().openCustomPage(live.ref(), live.store(), page);
+            page.refreshTexts();
+        } else {
+            RegisterPage page = new RegisterPage(live.playerRef(), plugin);
+            live.player().getPageManager().openCustomPage(live.ref(), live.store(), page);
+            page.refreshTexts();
         }
-        HytaleServer.SCHEDULED_EXECUTOR.schedule(
-            () -> world.execute(refresh), 200, TimeUnit.MILLISECONDS);
+        plugin.getLogger().atInfo().log(
+            "Opened %s UI for %s", registered ? "login" : "register", live.playerRef().getUsername());
+    }
+
+    private void onMouseButton(PlayerMouseButtonEvent event) {
+        PlayerRef playerRef = event.getPlayerRefComponent();
+        if (playerRef != null && plugin.getLimboService().isInLimbo(playerRef.getUuid())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @Nullable
+    private static PlayerRef playerRefFromEntity(Ref<EntityStore> ref) {
+        if (ref == null || !ref.isValid()) {
+            return null;
+        }
+        return ref.getStore().getComponent(ref, PlayerRef.getComponentType());
     }
 
     private PlayerChatEvent onChat(PlayerChatEvent event) {
         PlayerRef sender = event.getSender();
         if (sender != null && plugin.getLimboService().isInLimbo(sender.getUuid())) {
             event.setCancelled(true);
-            boolean registered = plugin.getDataSource().isRegistered(sender.getUsername());
-            sender.sendMessage(plugin.getMessages().get(registered
-                ? "login.reminder"
-                : "register.reminder"));
+            String totpKey = plugin.getTotpService().reminderKey(sender.getUuid());
+            if (totpKey != null) {
+                sender.sendMessage(plugin.getMessages().get(totpKey));
+            } else {
+                boolean registered = plugin.getDataSource().isRegistered(sender.getUsername());
+                sender.sendMessage(plugin.getMessages().get(registered
+                    ? "login.reminder"
+                    : "register.reminder"));
+            }
         }
         return event;
     }
@@ -252,6 +322,7 @@ public final class PlayerListener {
         boolean wasAuthenticated = plugin.getLimboService().hasSessionAuth(uuid);
         plugin.getLimboService().clearSession(uuid);
         plugin.getPremiumService().clear(uuid);
+        plugin.getTotpService().clear(uuid);
 
         if (wasAuthenticated) {
             PlayerAuth auth = plugin.getDataSource().getAuth(playerRef.getUsername());
@@ -260,5 +331,10 @@ public final class PlayerListener {
                 plugin.getDataSource().updateAuth(auth);
             }
         }
+    }
+
+    @FunctionalInterface
+    private interface LiveUiOpener {
+        void open(AuthUi.LivePlayer live);
     }
 }

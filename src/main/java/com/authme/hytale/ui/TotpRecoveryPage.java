@@ -2,6 +2,7 @@ package com.authme.hytale.ui;
 
 import com.authme.hytale.AuthMePlugin;
 import com.authme.hytale.message.Messages;
+import com.authme.hytale.service.AuthService;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.protocol.packets.interface_.CustomPageLifetime;
@@ -16,41 +17,15 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import javax.annotation.Nonnull;
 
 /**
- * Non-dismissible plaque shown when a premium/offline mismatch is detected.
- * The only action is a red Exit button that disconnects the player.
+ * One-time screenshot page for recovery codes after 2FA is bound.
  */
-public final class AccessDeniedPage extends InteractiveCustomUIPage<AuthEventData> {
-
-    public enum Reason {
-        /** Offline client tried to join a premium-registered name. */
-        PREMIUM_ACCOUNT("ui.denied.premium.title", "error.premiumAccount"),
-        /** Premium client tried to join an offline-registered name. */
-        OFFLINE_ACCOUNT("ui.denied.offline.title", "error.offlineAccount");
-
-        private final String titleKey;
-        private final String messageKey;
-
-        Reason(String titleKey, String messageKey) {
-            this.titleKey = titleKey;
-            this.messageKey = messageKey;
-        }
-
-        public String titleKey() {
-            return titleKey;
-        }
-
-        public String messageKey() {
-            return messageKey;
-        }
-    }
+public final class TotpRecoveryPage extends InteractiveCustomUIPage<AuthEventData> {
 
     private final AuthMePlugin plugin;
-    private final Reason reason;
 
-    public AccessDeniedPage(@Nonnull PlayerRef playerRef, AuthMePlugin plugin, Reason reason) {
+    public TotpRecoveryPage(@Nonnull PlayerRef playerRef, AuthMePlugin plugin) {
         super(playerRef, CustomPageLifetime.CantClose, AuthEventData.CODEC);
         this.plugin = plugin;
-        this.reason = reason;
     }
 
     @Override
@@ -58,13 +33,13 @@ public final class AccessDeniedPage extends InteractiveCustomUIPage<AuthEventDat
                       @Nonnull UICommandBuilder commandBuilder,
                       @Nonnull UIEventBuilder eventBuilder,
                       @Nonnull Store<EntityStore> store) {
-        commandBuilder.append("Pages/hlAuthAccessDeniedPage.ui");
+        commandBuilder.append("Pages/hlAuthTotpRecoveryPage.ui");
         applyTexts(commandBuilder);
 
         eventBuilder.addEventBinding(
             CustomUIEventBindingType.Activating,
-            "#ExitButton",
-            EventData.of("Action", "Exit"),
+            "#ContinueButton",
+            EventData.of("Action", "TotpContinue"),
             false);
     }
 
@@ -76,19 +51,24 @@ public final class AccessDeniedPage extends InteractiveCustomUIPage<AuthEventDat
 
     private void applyTexts(UICommandBuilder commands) {
         Messages msg = plugin.getMessages();
-        commands.set("#TitleLabel.Text", msg.text(reason.titleKey()));
-        commands.set("#Message.Text", msg.text(reason.messageKey()));
-        commands.set("#ExitButton.Text", msg.text("ui.denied.exit"));
+        String[] codes = plugin.getTotpService().pendingRecoveryCodes(playerRef.getUuid());
+        String joined = codes == null ? "" : String.join("\n", codes);
+        commands.set("#TitleLabel.Text", msg.text("ui.2fa.recovery.title"));
+        commands.set("#Welcome.Text", msg.text("ui.2fa.recovery.welcome"));
+        commands.set("#Codes.Text", joined);
+        commands.set("#Warning.Text", msg.text("ui.2fa.recovery.warning"));
+        commands.set("#ContinueButton.Text", msg.text("ui.2fa.recovery.button"));
     }
 
     @Override
     public void handleDataEvent(@Nonnull Ref<EntityStore> ref,
                                 @Nonnull Store<EntityStore> store,
                                 @Nonnull AuthEventData data) {
-        if (!"Exit".equals(data.getAction())) {
+        if (!"TotpContinue".equals(data.getAction())) {
             return;
         }
-        // Close the page first — kicking with UI open bugs the client hit-zones
-        AuthUi.closeAndDisconnect(playerRef, plugin.getMessages().get(reason.messageKey()));
+        AuthService.Result result = plugin.getTotpService().continueAfterRecovery(playerRef);
+        close();
+        playerRef.sendMessage(result.message());
     }
 }

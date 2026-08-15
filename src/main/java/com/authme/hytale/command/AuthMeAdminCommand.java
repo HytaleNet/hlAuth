@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Admin command collection: {@code /hlauth <register|unregister|changepassword|info|reload>}.
+ * Admin command collection: {@code /hlauth <register|unregister|changepassword|info|reload|backup|2fareset>}.
  * Alias {@code /authme} kept for convenience. Requires {@code hlauth.admin}.
  */
 public final class AuthMeAdminCommand extends CommandBase {
@@ -32,6 +32,8 @@ public final class AuthMeAdminCommand extends CommandBase {
         addSubCommand(new ChangePasswordSub(plugin));
         addSubCommand(new InfoSub(plugin));
         addSubCommand(new ReloadSub(plugin));
+        addSubCommand(new BackupSub(plugin));
+        addSubCommand(new TwoFactorResetSub(plugin));
     }
 
     @Override
@@ -152,6 +154,7 @@ public final class AuthMeAdminCommand extends CommandBase {
             context.sendMessage(plugin.getMessages().get("admin.info",
                 "player", auth.realName,
                 "premium", String.valueOf(auth.premium),
+                "totp", String.valueOf(auth.totpEnabled),
                 "registrationDate", auth.registrationDate > 0
                     ? Instant.ofEpochMilli(auth.registrationDate).toString() : "-",
                 "registrationIp", orDash(auth.registrationIp),
@@ -178,6 +181,53 @@ public final class AuthMeAdminCommand extends CommandBase {
         protected void executeSync(@Nonnull CommandContext context) {
             plugin.reloadConfig();
             context.sendMessage(plugin.getMessages().get("admin.reloaded"));
+        }
+    }
+
+    private static final class BackupSub extends CommandBase {
+        private final AuthMePlugin plugin;
+
+        BackupSub(AuthMePlugin plugin) {
+            super("backup", "Write a JSON snapshot of all accounts");
+            this.plugin = plugin;
+            requirePermission("hlauth.admin.backup");
+        }
+
+        @Override
+        protected void executeSync(@Nonnull CommandContext context) {
+            var result = plugin.getBackupService().createBackup();
+            if (result.success()) {
+                context.sendMessage(plugin.getMessages().get("admin.backup.ok",
+                    "file", result.file().getFileName().toString(),
+                    "count", String.valueOf(result.count())));
+            } else {
+                context.sendMessage(plugin.getMessages().get("admin.backup.fail",
+                    "error", result.error() == null ? "unknown" : result.error()));
+            }
+        }
+    }
+
+    private static final class TwoFactorResetSub extends CommandBase {
+        private final AuthMePlugin plugin;
+        private final RequiredArg<String> nameArg;
+
+        TwoFactorResetSub(AuthMePlugin plugin) {
+            super("2fareset", "Remove two-factor authentication from a player");
+            this.plugin = plugin;
+            this.nameArg = withRequiredArg("player", "Player name", ArgTypes.STRING);
+            requirePermission("hlauth.admin.2fareset");
+        }
+
+        @Override
+        protected void executeSync(@Nonnull CommandContext context) {
+            String name = context.get(nameArg);
+            PlayerAuth auth = plugin.getDataSource().getAuth(name);
+            if (auth == null) {
+                context.sendMessage(plugin.getMessages().get("error.notRegistered"));
+                return;
+            }
+            plugin.getTotpService().adminReset(auth);
+            context.sendMessage(plugin.getMessages().get("admin.2fareset", "player", name));
         }
     }
 }

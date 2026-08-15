@@ -26,11 +26,17 @@ public final class AuthEventData {
             (data, value) -> data.confirm = value,
             data -> data.confirm)
         .add()
+        .append(
+            new KeyedCodec<>("@Code", Codec.STRING),
+            (data, value) -> data.code = value,
+            data -> data.code)
+        .add()
         .build();
 
     private String action;
     private String password;
     private String confirm;
+    private String code;
 
     public String getAction() {
         return action;
@@ -42,5 +48,9 @@ public final class AuthEventData {
 
     public String getConfirm() {
         return confirm;
+    }
+
+    public String getCode() {
+        return code;
     }
 }

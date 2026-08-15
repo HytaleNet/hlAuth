@@ -120,6 +120,11 @@ public final class LimboService {
             }
             if (reminderMillis > 0 && now - entry.lastReminder > reminderMillis) {
                 entry.lastReminder = now;
+                String totpKey = plugin.getTotpService().reminderKey(uuid);
+                if (totpKey != null) {
+                    player.sendMessage(plugin.getMessages().get(totpKey));
+                    continue;
+                }
                 boolean registered = plugin.getDataSource().isRegistered(player.getUsername());
                 player.sendMessage(plugin.getMessages().get(registered
                     ? "login.reminder"

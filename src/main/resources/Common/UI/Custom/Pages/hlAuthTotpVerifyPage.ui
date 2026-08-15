@@ -1,0 +1,69 @@
+$C = "../Common.ui";
+$Sounds = "../Sounds.ui";
+
+$C.@PageOverlay {
+  LayoutMode: Middle;
+
+  $C.@DecoratedContainer {
+    Anchor: (Width: 460);
+
+    #Title {
+      Label #TitleLabel {
+        Style: (...$C.@TitleStyle, HorizontalAlignment: Center);
+        Padding: (Horizontal: 19);
+        Text: "";
+      }
+    }
+
+    #Content {
+      Padding: (Vertical: 30, Horizontal: 40);
+
+      Label #Welcome {
+        Text: "";
+        Style: (FontSize: 16, TextColor: $C.@ColorDefaultLabel, HorizontalAlignment: Center, Wrap: true);
+        Anchor: (Bottom: 14);
+      }
+
+      Label #CodeLabel {
+        Text: "";
+        Style: (RenderBold: true, RenderUppercase: true, TextColor: #94a7bb);
+      }
+
+      $C.@TextField #CodeInput {
+        Anchor: (Top: 8, Height: 44);
+        PlaceholderText: "";
+        PasswordChar: "•";
+      }
+
+      Label #Error {
+        Style: (RenderBold: true, TextColor: #bb3333, HorizontalAlignment: Center, Wrap: true);
+        Anchor: (Top: 10);
+        Visible: false;
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Top: 18, Height: 44);
+
+        $C.@TextButton #ConfirmButton {
+          @Sounds = $Sounds.@ButtonsLight;
+          Text: "";
+          FlexWeight: 1;
+          Anchor: (Right: 8);
+        }
+
+        $C.@CancelTextButton #CancelButton {
+          @Sounds = $Sounds.@ButtonsCancel;
+          Text: "";
+          FlexWeight: 1;
+        }
+      }
+
+      Label #Hint {
+        Text: "";
+        Style: (FontSize: 12, TextColor: $C.@ColorGrayCaption, HorizontalAlignment: Center, Wrap: true);
+        Anchor: (Top: 16);
+      }
+    }
+  }
+}

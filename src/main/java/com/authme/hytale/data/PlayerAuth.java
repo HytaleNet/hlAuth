@@ -24,6 +24,12 @@ public final class PlayerAuth {
     public long lastLogin;
     /** True when the account was registered by a verified premium (licensed) player. */
     public boolean premium;
+    /** True when TOTP 2FA is bound to this account. */
+    public boolean totpEnabled;
+    /** Base32 TOTP secret (stored so authenticator apps can keep working). */
+    public String totpSecret;
+    /** One-time recovery code hashes ({@code $REC$salt$hash}). */
+    public String[] totpRecoveryHashes;
 
     public PlayerAuth() {
     }

@@ -34,7 +34,7 @@ public final class LoginPage extends InteractiveCustomUIPage<AuthEventData> {
                       @Nonnull UICommandBuilder commandBuilder,
                       @Nonnull UIEventBuilder eventBuilder,
                       @Nonnull Store<EntityStore> store) {
-        commandBuilder.append("AuthMe/LoginPage.ui");
+        commandBuilder.append("Pages/hlAuthLoginPage.ui");
         applyTexts(commandBuilder);
 
         eventBuilder.addEventBinding(
@@ -70,6 +70,10 @@ public final class LoginPage extends InteractiveCustomUIPage<AuthEventData> {
             return;
         }
         AuthService.Result result = plugin.getAuthService().login(playerRef, data.getPassword());
+        if (TwoFactorPages.open(plugin, playerRef, store, ref, result)) {
+            playerRef.sendMessage(result.message());
+            return;
+        }
         if (result.success()) {
             close();
             playerRef.sendMessage(result.message());

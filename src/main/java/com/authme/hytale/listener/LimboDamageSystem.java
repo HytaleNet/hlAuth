@@ -3,6 +3,7 @@ package com.authme.hytale.listener;
 import com.authme.hytale.AuthMePlugin;
 import com.hypixel.hytale.component.ArchetypeChunk;
 import com.hypixel.hytale.component.CommandBuffer;
+import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.SystemGroup;
 import com.hypixel.hytale.component.query.Query;
@@ -16,13 +17,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Cancels all damage dealt to players that are still in AuthMe limbo
- * (not authenticated / access-denied plaque).
+ * Cancels damage taken by limbo players, and damage dealt by them.
  */
 public final class LimboDamageSystem extends DamageEventSystem {
 
     private final AuthMePlugin plugin;
-    private final Query<EntityStore> query = PlayerRef.getComponentType();
+    private final Query<EntityStore> query = Query.any();
 
     public LimboDamageSystem(AuthMePlugin plugin) {
         this.plugin = plugin;
@@ -46,9 +46,19 @@ public final class LimboDamageSystem extends DamageEventSystem {
                        @Nonnull Store<EntityStore> store,
                        @Nonnull CommandBuffer<EntityStore> commandBuffer,
                        @Nonnull Damage event) {
-        PlayerRef playerRef = chunk.getComponent(index, PlayerRef.getComponentType());
-        if (playerRef != null && plugin.getLimboService().isInLimbo(playerRef.getUuid())) {
+        PlayerRef victim = chunk.getComponent(index, PlayerRef.getComponentType());
+        if (victim != null && plugin.getLimboService().isInLimbo(victim.getUuid())) {
             event.setCancelled(true);
+            return;
+        }
+        if (event.getSource() instanceof Damage.EntitySource entitySource) {
+            Ref<EntityStore> attacker = entitySource.getRef();
+            if (attacker != null && attacker.isValid()) {
+                PlayerRef attackerRef = store.getComponent(attacker, PlayerRef.getComponentType());
+                if (attackerRef != null && plugin.getLimboService().isInLimbo(attackerRef.getUuid())) {
+                    event.setCancelled(true);
+                }
+            }
         }
     }
 }
