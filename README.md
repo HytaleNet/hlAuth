@@ -161,4 +161,4 @@ If you still have `accounts.json` from 1.0.0/1.0.1, leave it in the data folder 
 Backups are `mods/HytaleNet_hlAuth/backups/hlauth-YYYY-MM-DD_HH-mm-ss.json`. Restore: put the file as `accounts.json` in the plugin data folder, empty/delete the SQL database, and restart so it imports.
 
 
-[![hlAuth HStats](https://api.hstats.dev/api/embed/eb9de4a9-3201-4e10-a67e-df58c1e2e3d0/card.svg?theme=dark&layout=history&size=sm&dark=false&font=system&background=transparent)](https://hstats.dev/mods/eb9de4a9-3201-4e10-a67e-df58c1e2e3d0)
+[![hlAuth HStats](https://api.hstats.dev/api/embed/eb9de4a9-3201-4e10-a67e-df58c1e2e3d0/card.svg?theme=dark&layout=history&size=lg&dark=false&font=system&background=transparent)](https://hstats.dev/mods/eb9de4a9-3201-4e10-a67e-df58c1e2e3d0)
