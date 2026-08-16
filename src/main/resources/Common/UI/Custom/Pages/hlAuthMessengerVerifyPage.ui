@@ -1,0 +1,45 @@
+$C = "../Common.ui";
+$Sounds = "../Sounds.ui";
+
+$C.@PageOverlay {
+  LayoutMode: Middle;
+
+  $C.@DecoratedContainer {
+    Anchor: (Width: 480);
+
+    #Title {
+      Label #TitleLabel {
+        Style: (...$C.@TitleStyle, HorizontalAlignment: Center);
+        Padding: (Horizontal: 19);
+        Text: "";
+      }
+    }
+
+    #Content {
+      Padding: (Vertical: 28, Horizontal: 40);
+
+      Label #Welcome {
+        Text: "";
+        Style: (FontSize: 16, TextColor: $C.@ColorDefaultLabel, HorizontalAlignment: Center, Wrap: true);
+        Anchor: (Bottom: 18);
+      }
+
+      Label #Hint {
+        Text: "";
+        Style: (FontSize: 13, TextColor: $C.@ColorGrayCaption, HorizontalAlignment: Center, Wrap: true);
+        Anchor: (Bottom: 16);
+      }
+
+      Group {
+        LayoutMode: Center;
+        Anchor: (Top: 8);
+
+        $C.@CancelTextButton #CancelButton {
+          @Sounds = $Sounds.@ButtonsCancel;
+          Text: "";
+          FlexWeight: 1;
+        }
+      }
+    }
+  }
+}

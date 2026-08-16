@@ -21,3 +21,5 @@ Thumbs.db
 *.log
 accounts.json
 config.json
+CHANGELOG.md
+LISTING.md

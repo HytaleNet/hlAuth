@@ -1,0 +1,87 @@
+$C = "../Common.ui";
+$Sounds = "../Sounds.ui";
+
+$C.@PageOverlay {
+  LayoutMode: Middle;
+
+  $C.@DecoratedContainer {
+    Anchor: (Width: 520);
+
+    #Title {
+      Label #TitleLabel {
+        Style: (...$C.@TitleStyle, HorizontalAlignment: Center);
+        Padding: (Horizontal: 19);
+        Text: "";
+      }
+    }
+
+    #Content {
+      Padding: (Vertical: 24, Horizontal: 36);
+
+      Label #Player {
+        Text: "";
+        Style: (FontSize: 16, TextColor: $C.@ColorDefaultLabel, HorizontalAlignment: Center, Wrap: true);
+        Anchor: (Bottom: 16);
+      }
+
+      Label #IpLabel {
+        Text: "";
+        Style: (RenderBold: true, RenderUppercase: true, TextColor: #94a7bb);
+      }
+
+      Label #IpValue {
+        Text: "";
+        Style: (FontSize: 18, RenderBold: true, TextColor: #e8eef4);
+        Anchor: (Top: 4, Bottom: 10);
+      }
+
+      Label #AccountsLabel {
+        Text: "";
+        Style: (RenderBold: true, RenderUppercase: true, TextColor: #94a7bb);
+      }
+
+      Label #Accounts {
+        Text: "";
+        Style: (FontSize: 15, TextColor: $C.@ColorDefaultLabel, Wrap: true);
+        Anchor: (Top: 4, Bottom: 14);
+      }
+
+      Label #Ip2Label {
+        Text: "";
+        Style: (RenderBold: true, RenderUppercase: true, TextColor: #94a7bb);
+        Visible: false;
+      }
+
+      Label #Ip2Value {
+        Text: "";
+        Style: (FontSize: 18, RenderBold: true, TextColor: #e8eef4);
+        Anchor: (Top: 4, Bottom: 10);
+        Visible: false;
+      }
+
+      Label #Accounts2Label {
+        Text: "";
+        Style: (RenderBold: true, RenderUppercase: true, TextColor: #94a7bb);
+        Visible: false;
+      }
+
+      Label #Accounts2 {
+        Text: "";
+        Style: (FontSize: 15, TextColor: $C.@ColorDefaultLabel, Wrap: true);
+        Anchor: (Top: 4, Bottom: 16);
+        Visible: false;
+      }
+
+      Group {
+        LayoutMode: Center;
+        Anchor: (Top: 8);
+
+        $C.@CancelTextButton #CloseButton {
+          @Sounds = $Sounds.@ButtonsCancel;
+          Text: "";
+          FlexWeight: 1;
+        }
+      }
+    }
+  }
+}

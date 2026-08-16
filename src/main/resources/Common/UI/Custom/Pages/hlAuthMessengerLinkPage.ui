@@ -1,0 +1,83 @@
+$C = "../Common.ui";
+$Sounds = "../Sounds.ui";
+
+$C.@PageOverlay {
+  LayoutMode: Middle;
+
+  $C.@DecoratedContainer {
+    Anchor: (Width: 520);
+
+    #Title {
+      Label #TitleLabel {
+        Style: (...$C.@TitleStyle, HorizontalAlignment: Center);
+        Padding: (Horizontal: 19);
+        Text: "";
+      }
+    }
+
+    #Content {
+      Padding: (Vertical: 24, Horizontal: 36);
+
+      Label #Welcome {
+        Text: "";
+        Style: (FontSize: 15, TextColor: $C.@ColorDefaultLabel, HorizontalAlignment: Center, Wrap: true);
+        Anchor: (Bottom: 12);
+      }
+
+      Label #Warning {
+        Text: "";
+        Style: (FontSize: 14, RenderBold: true, TextColor: #E8A93B, HorizontalAlignment: Center, Wrap: true);
+        Anchor: (Bottom: 12);
+        Visible: false;
+      }
+
+      Label #CodeLabel {
+        Text: "";
+        Style: (RenderBold: true, RenderUppercase: true, TextColor: #94a7bb, HorizontalAlignment: Center);
+      }
+
+      Label #CodeValue {
+        Text: "";
+        Style: (FontSize: 22, RenderBold: true, TextColor: #e8eef4, HorizontalAlignment: Center);
+        Anchor: (Top: 6, Bottom: 12);
+      }
+
+      $C.@TextField #CodeInput {
+        Anchor: (Top: 6, Height: 44, Bottom: 12);
+        PlaceholderText: "";
+        Visible: false;
+      }
+
+      Label #Hint {
+        Text: "";
+        Style: (FontSize: 13, TextColor: $C.@ColorGrayCaption, HorizontalAlignment: Center, Wrap: true);
+        Anchor: (Bottom: 16);
+      }
+
+      $C.@TextButton #BotLinkButton {
+        @Sounds = $Sounds.@ButtonsLight;
+        Text: "";
+        Anchor: (Bottom: 8);
+        Visible: false;
+      }
+
+      Group {
+        LayoutMode: Center;
+        Anchor: (Top: 8);
+
+        $C.@TextButton #ConfirmButton {
+          @Sounds = $Sounds.@ButtonsLight;
+          Text: "";
+          FlexWeight: 1;
+          Visible: false;
+        }
+
+        $C.@CancelTextButton #CancelButton {
+          @Sounds = $Sounds.@ButtonsCancel;
+          Text: "";
+          FlexWeight: 1;
+        }
+      }
+    }
+  }
+}
